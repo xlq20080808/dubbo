@@ -190,7 +190,7 @@ public class TripleServerStream extends AbstractStream implements ServerStream {
             headers.status(HttpResponseStatus.OK.codeAsText());
             headers.set(HttpHeaderNames.CONTENT_TYPE, TripleConstant.CONTENT_PROTO);
         }
-        StreamUtils.convertAttachment(headers, attachments, TripleProtocol.CONVERT_NO_LOWER_HEADER);
+        StreamUtils.convertAttachment(headers, attachments, TripleProtocol.CONVERT_NO_LOWER_HEADER, TripleProtocol.CONVERT_NO_ASCII_HEADER);
         headers.set(TripleHeaderEnum.STATUS_KEY.getHeader(), String.valueOf(rpcStatus.code.code));
         if (rpcStatus.isOk()) {
             return headers;
@@ -410,6 +410,10 @@ public class TripleServerStream extends AbstractStream implements ServerStream {
 
             Map<String, Object> requestMetadata = headersToMap(headers, () -> {
                 return Optional.ofNullable(headers.get(TripleHeaderEnum.TRI_HEADER_CONVERT.getHeader()))
+                    .map(CharSequence::toString)
+                    .orElse(null);
+            }, () -> {
+                return Optional.ofNullable(headers.get(TripleHeaderEnum.TRI_HEADER_NO_ASCII_CONVERT.getHeader()))
                     .map(CharSequence::toString)
                     .orElse(null);
             });

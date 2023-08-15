@@ -271,6 +271,7 @@ public class TripleInvoker<T> extends AbstractInvoker<T> {
                 .create(methodDescriptor, url, TripleConstant.CONTENT_PROTO);
         }
         meta.convertNoLowerHeader = TripleProtocol.CONVERT_NO_LOWER_HEADER;
+        meta.convertNoAsciiHeader = TripleProtocol.CONVERT_NO_ASCII_HEADER;
         meta.ignoreDefaultVersion = TripleProtocol.IGNORE_1_0_0_VERSION;
         meta.method = methodDescriptor;
         meta.scheme = getSchemeFromUrl(url);

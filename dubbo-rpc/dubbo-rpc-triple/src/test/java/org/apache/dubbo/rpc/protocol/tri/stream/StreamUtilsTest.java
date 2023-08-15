@@ -18,6 +18,7 @@
 package org.apache.dubbo.rpc.protocol.tri.stream;
 
 import org.apache.dubbo.common.utils.JsonUtils;
+import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.rpc.TriRpcStatus;
 import org.apache.dubbo.rpc.protocol.tri.TripleHeaderEnum;
 
@@ -27,6 +28,8 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -56,8 +59,9 @@ class StreamUtilsTest {
         attachments.put("key1111", "value");
         attachments.put("Upper", "Upper");
         attachments.put("obj", new Object());
+        attachments.put("noAscii", "这是中文");
 
-        StreamUtils.convertAttachment(headers, attachments, false);
+        StreamUtils.convertAttachment(headers, attachments, false, false);
         Assertions.assertNull(headers.get(TripleHeaderEnum.PATH_KEY.getHeader()));
         Assertions.assertNull(headers.get("Upper"));
         Assertions.assertNull(headers.get("obj"));
@@ -65,7 +69,7 @@ class StreamUtilsTest {
         headers = new DefaultHttp2Headers();
         headers.add("key", "value");
 
-        StreamUtils.convertAttachment(headers, attachments, true);
+        StreamUtils.convertAttachment(headers, attachments, true, false);
         Assertions.assertNull(headers.get(TripleHeaderEnum.PATH_KEY.getHeader()));
         Assertions.assertNull(headers.get("Upper"));
         Assertions.assertNull(headers.get("obj"));
@@ -74,6 +78,28 @@ class StreamUtilsTest {
         System.out.println(jsonRaw + "---" + json);
         Map<String, String> upperMap = JsonUtils.toJavaObject(json, Map.class);
         Assertions.assertArrayEquals("Upper".getBytes(StandardCharsets.UTF_8), upperMap.get("upper").getBytes(StandardCharsets.UTF_8));
+
+        headers = new DefaultHttp2Headers();
+        headers.add("key", "value");
+
+        StreamUtils.convertAttachment(headers, attachments, true, true);
+        Assertions.assertNull(headers.get(TripleHeaderEnum.PATH_KEY.getHeader()));
+        Assertions.assertNull(headers.get("Upper"));
+        Assertions.assertNull(headers.get("noAscii"));
+        Assertions.assertNull(headers.get("obj"));
+        String jsonRaw1 = headers.get(TripleHeaderEnum.TRI_HEADER_CONVERT.getHeader()).toString();
+        String json1 = TriRpcStatus.decodeMessage(jsonRaw1);
+        System.out.println(jsonRaw1 + "---" + json1);
+        Map<String, String> upperMap1 = JsonUtils.toJavaObject(json, Map.class);
+        Assertions.assertArrayEquals("Upper".getBytes(StandardCharsets.UTF_8), upperMap1.get("upper").getBytes(StandardCharsets.UTF_8));
+        Assertions.assertArrayEquals("noAscii".getBytes(StandardCharsets.UTF_8), upperMap1.get("noascii").getBytes(StandardCharsets.UTF_8));
+
+        String jsonRaw2 = headers.get(TripleHeaderEnum.TRI_HEADER_NO_ASCII_CONVERT.getHeader()).toString();
+        String json2 = TriRpcStatus.decodeMessage(jsonRaw2);
+        System.out.println(jsonRaw2 + "---" + json2);
+        List<String> list = JsonUtils.toJavaObject(json2, List.class);
+        Assertions.assertNotNull(list);
+        Assertions.assertEquals("noAscii".toLowerCase(Locale.ROOT), list.get(0));
 
         int count = 10000;
         CountDownLatch latch = new CountDownLatch(count);
@@ -84,12 +110,13 @@ class StreamUtilsTest {
             attachments2.put(TripleHeaderEnum.PATH_KEY.getHeader(), "value");
             attachments2.put("key1111", "value");
             attachments2.put("Upper", "Upper");
+            attachments2.put("noAscii", "这是中文");
             attachments2.put("obj", new Object());
             attachments2.put(randomKey, randomValue);
             executorService.execute(() -> {
                 DefaultHttp2Headers headers2 = new DefaultHttp2Headers();
                 headers2.add("key", "value");
-                StreamUtils.convertAttachment(headers2, attachments2, true);
+                StreamUtils.convertAttachment(headers2, attachments2, true, true);
 
                 if (headers2.get(TripleHeaderEnum.PATH_KEY.getHeader()) != null) {
                     return;
@@ -98,6 +125,9 @@ class StreamUtilsTest {
                     return;
                 }
                 if (headers2.get("obj") != null) {
+                    return;
+                }
+                if (StringUtils.isEmpty(headers2.get(TripleHeaderEnum.TRI_HEADER_NO_ASCII_CONVERT.getHeader()).toString())) {
                     return;
                 }
                 if (!headers2.get(randomKey).toString().equals(randomValue)) {

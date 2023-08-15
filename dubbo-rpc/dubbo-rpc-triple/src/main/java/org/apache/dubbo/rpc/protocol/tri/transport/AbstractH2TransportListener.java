@@ -27,8 +27,10 @@ import org.apache.dubbo.rpc.protocol.tri.stream.StreamUtils;
 
 import io.netty.handler.codec.http2.Http2Headers;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -45,7 +47,7 @@ public abstract class AbstractH2TransportListener implements H2TransportListener
      * @param trailers the metadata from remote
      * @return KV pairs map
      */
-    protected Map<String, Object> headersToMap(Http2Headers trailers, Supplier<Object> convertUpperHeaderSupplier) {
+    protected Map<String, Object> headersToMap(Http2Headers trailers, Supplier<Object> convertUpperHeaderSupplier, Supplier<Object> convertNoAsciiHeaderSupplier) {
         if (trailers == null) {
             return Collections.emptyMap();
         }
@@ -65,6 +67,24 @@ public abstract class AbstractH2TransportListener implements H2TransportListener
             } else {
                 attachments.put(key, header.getValue().toString());
             }
+        }
+
+        // try converting no ascii value
+        Object convertValues = convertNoAsciiHeaderSupplier.get();
+        if (convertValues instanceof String) {
+            String json = TriRpcStatus.decodeMessage((String) convertValues);
+            List<String> keys = JsonUtils.toJavaObject(json, List.class);
+            keys.forEach((k) -> {
+                Object val = attachments.remove(k);
+                if (val instanceof byte[]) {
+                    attachments.put(k, new String((byte[]) val, StandardCharsets.UTF_8));
+                }
+            });
+        } else {
+            // If convertUpperHeaderSupplier does not return String, just fail...
+            // Internal invocation, use INTERNAL_ERROR instead.
+
+            LOGGER.error(INTERNAL_ERROR, "wrong internal invocation", "", "Triple convertNoAsciiCaseHeader error, obj is not String");
         }
 
         // try converting upper key

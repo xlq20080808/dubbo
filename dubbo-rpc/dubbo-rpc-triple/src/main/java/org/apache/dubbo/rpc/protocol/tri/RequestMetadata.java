@@ -48,6 +48,7 @@ public class RequestMetadata {
     public PackableMethod packableMethod;
     public Map<String, Object> attachments;
     public boolean convertNoLowerHeader;
+    public boolean convertNoAsciiHeader;
     public boolean ignoreDefaultVersion;
 
     public DefaultHttp2Headers toHeaders() {
@@ -71,7 +72,7 @@ public class RequestMetadata {
             setIfNotNull(header, TripleHeaderEnum.GRPC_ENCODING.getHeader(),
                 compressor.getMessageEncoding());
         }
-        StreamUtils.convertAttachment(header, attachments, convertNoLowerHeader);
+        StreamUtils.convertAttachment(header, attachments, convertNoLowerHeader, convertNoAsciiHeader);
         return header;
     }
 

@@ -28,9 +28,11 @@ import org.apache.dubbo.rpc.protocol.tri.TripleHeaderEnum;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -48,6 +50,7 @@ public class StreamUtils {
 
     private static final Map<String, String> lruHeaderMap = new LRU2Cache<>(MAX_LRU_HEADER_MAP_SIZE);
 
+    private static final char MAX_CHAR_VALUE = 255;
     public static String encodeBase64ASCII(byte[] in) {
         byte[] bytes = encodeBase64(in);
         return new String(bytes, StandardCharsets.US_ASCII);
@@ -85,11 +88,13 @@ public class StreamUtils {
      */
     public static void convertAttachment(DefaultHttp2Headers headers,
                                          Map<String, Object> attachments,
-                                         boolean needConvertHeaderKey) {
+                                         boolean needConvertHeaderKey,
+                                         boolean needConvertHeaderValue) {
         if (attachments == null) {
             return;
         }
         Map<String, String> needConvertKey = new HashMap<>();
+        List<String> needConvertValueKeys = new ArrayList<>();
         for (Map.Entry<String, Object> entry : attachments.entrySet()) {
             String key = lruHeaderMap.get(entry.getKey());
             if (key == null) {
@@ -107,30 +112,45 @@ public class StreamUtils {
             if (needConvertHeaderKey && !key.equals(entry.getKey())) {
                 needConvertKey.put(key, entry.getKey());
             }
-            convertSingleAttachment(headers, key, v);
+            convertSingleAttachment(headers, key, v, needConvertHeaderValue, needConvertValueKeys);
         }
         if (!needConvertKey.isEmpty()) {
             String needConvertJson = JsonUtils.toJson(needConvertKey);
             headers.add(TripleHeaderEnum.TRI_HEADER_CONVERT.getHeader(), TriRpcStatus.encodeMessage(needConvertJson));
+        }
+        if (!needConvertValueKeys.isEmpty()) {
+            String needConvertValueKeyJson = JsonUtils.toJson(needConvertValueKeys);
+            headers.add(TripleHeaderEnum.TRI_HEADER_NO_ASCII_CONVERT.getHeader(), TriRpcStatus.encodeMessage(needConvertValueKeyJson));
         }
     }
 
 
     public static void convertAttachment(DefaultHttp2Headers headers,
                                          Map<String, Object> attachments) {
-        convertAttachment(headers, attachments, false);
+        convertAttachment(headers, attachments, false, false);
     }
 
     /**
      * Convert each user's attach value to metadata
      *
-     * @param headers outbound headers
-     * @param key     metadata key
-     * @param v       metadata value (Metadata Only string and byte arrays are allowed)
+     * @param headers                outbound headers
+     * @param key                    metadata key
+     * @param v                      metadata value (Metadata Only string and byte arrays are allowed)
+     * @param needConvertHeaderValue whether conversion is required when non-ascii code in the metadata value
+     * @param needConvertValueKeys   save the key that the value needs to be converted
      */
-    private static void convertSingleAttachment(DefaultHttp2Headers headers, String key, Object v) {
+    private static void convertSingleAttachment(DefaultHttp2Headers headers, String key, Object v, boolean needConvertHeaderValue, List<String> needConvertValueKeys) {
         try {
-            if (v instanceof String || v instanceof Number || v instanceof Boolean) {
+            if (v instanceof String) {
+                String str = v.toString();
+                if (needConvertHeaderValue && (str.chars().anyMatch(c -> c > MAX_CHAR_VALUE))) {
+                    String encodeStr = encodeBase64ASCII(str.getBytes(StandardCharsets.UTF_8));
+                    headers.set(key + TripleConstant.HEADER_BIN_SUFFIX, encodeStr);
+                    needConvertValueKeys.add(key);
+                } else {
+                    headers.set(key, str);
+                }
+            } else if (v instanceof Number || v instanceof Boolean) {
                 String str = v.toString();
                 headers.set(key, str);
             } else if (v instanceof byte[]) {

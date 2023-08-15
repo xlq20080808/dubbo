@@ -47,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import static org.apache.dubbo.config.Constants.SERVER_THREAD_POOL_NAME;
 import static org.apache.dubbo.rpc.Constants.H2_IGNORE_1_0_0_KEY;
 import static org.apache.dubbo.rpc.Constants.H2_RESOLVE_FALLBACK_TO_DEFAULT_KEY;
+import static org.apache.dubbo.rpc.Constants.H2_SUPPORT_NO_ASCII_HEADER_KEY;
 import static org.apache.dubbo.rpc.Constants.H2_SUPPORT_NO_LOWER_HEADER_KEY;
 
 public class TripleProtocol extends AbstractProtocol {
@@ -63,6 +64,8 @@ public class TripleProtocol extends AbstractProtocol {
      */
     public static boolean CONVERT_NO_LOWER_HEADER = false;
 
+    public static boolean CONVERT_NO_ASCII_HEADER = false;
+
     public static boolean IGNORE_1_0_0_VERSION = false;
 
     public static boolean RESOLVE_FALLBACK_TO_DEFAULT = true;
@@ -74,6 +77,8 @@ public class TripleProtocol extends AbstractProtocol {
             .getDefaultExtension();
         CONVERT_NO_LOWER_HEADER = ConfigurationUtils.getEnvConfiguration(ApplicationModel.defaultModel())
             .getBoolean(H2_SUPPORT_NO_LOWER_HEADER_KEY, true);
+        CONVERT_NO_ASCII_HEADER = ConfigurationUtils.getEnvConfiguration(ApplicationModel.defaultModel())
+            .getBoolean(H2_SUPPORT_NO_ASCII_HEADER_KEY, true);
         IGNORE_1_0_0_VERSION = ConfigurationUtils.getEnvConfiguration(ApplicationModel.defaultModel())
             .getBoolean(H2_IGNORE_1_0_0_KEY, false);
         RESOLVE_FALLBACK_TO_DEFAULT = ConfigurationUtils.getEnvConfiguration(ApplicationModel.defaultModel())

@@ -46,6 +46,8 @@ public enum TripleHeaderEnum {
 
     TRI_HEADER_CONVERT("tri-header-convert"),
 
+    TRI_HEADER_NO_ASCII_CONVERT("tri-header-no-ascii-convert"),
+
     TRI_EXCEPTION_CODE("tri-exception-code"),
 
     ;
